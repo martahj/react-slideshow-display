@@ -3,6 +3,8 @@ import React, { PureComponent } from 'react';
 
 type SlideControllerProps = {
   children: Object,
+  transition: ?string,
+  disableArrowKeys: ?boolean,
 };
 
 type SlideControllerState = {
@@ -10,6 +12,8 @@ type SlideControllerState = {
   oneSlideWidth: number,
   shouldNotAnimate: boolean,
 };
+
+const DEFAULT_TRANSITION = '500ms ease-in-out';
 
 const incrementSlide = (state: SlideControllerState, props: SlideControllerProps) => ({
   currentSlide: Math.min(state.currentSlide + 1, React.Children.count(props.children) - 1)
@@ -37,8 +41,17 @@ class SlideController extends PureComponent<SlideControllerProps, SlideControlle
   }
 
   componentWillMount() {
+    if (!this.props.disableArrowKeys) this.setUpKeyListener();
     window.addEventListener('resize', this.updateNodeDimensions);
-    window.addEventListener('keydown', this.handleKeyPress);
+  }
+
+  componentWillReceiveProps(nextProps: SlideControllerProps) {
+    if (nextProps.disableArrowKeys && !this.props.disableArrowKeys) {
+      this.removeKeyListener();
+    }
+    if (!nextProps.disableArrowKeys && this.props.disableArrowKeys) {
+      this.setUpKeyListener();
+    }
   }
 
   componentDidUpdate(prevProps: SlideControllerProps, prevState: SlideControllerState) {
@@ -48,14 +61,22 @@ class SlideController extends PureComponent<SlideControllerProps, SlideControlle
   }
 
   componentWillUnmount() {
+    if (!this.props.disableArrowKeys) this.removeKeyListener();
     window.removeEventListener('resize', this.updateNodeDimensions);
-    window.removeEventListener('keydown', this.handleKeyPress);
   }
 
   handleKeyPress = (event): void => {
     const { keyCode } = event;
     if (keyCode === 39) this.goToNextSlide();
     else if (keyCode ===37) this.goToPreviousSlide();
+  }
+
+  setUpKeyListener = (): void => {
+    window.addEventListener('keydown', this.handleKeyPress);
+  }
+
+  removeKeyListener = (): void => {
+    window.removeEventListener('keydown', this.handleKeyPress);
   }
 
   goToPreviousSlide = (): void => {
@@ -79,6 +100,11 @@ class SlideController extends PureComponent<SlideControllerProps, SlideControlle
   render() {
     const { currentSlide, oneSlideWidth, shouldNotAnimate } = this.state;
     const numberSlides = this.props.children.length;
+    if (numberSlides === 0) return null;
+    const transition = `
+      ${shouldNotAnimate ? 'none' : 'right'}
+      ${this.props.transition || DEFAULT_TRANSITION}
+    `;
     return (
       <div
         style={{ width: '100%', height: '100%', overflow: 'hidden', backgroundColor: 'black'}}
@@ -92,7 +118,7 @@ class SlideController extends PureComponent<SlideControllerProps, SlideControlle
             flexWrap: 'nowrap',
             position: 'relative',
             right: currentSlide * oneSlideWidth,
-            transition: `${shouldNotAnimate ? 'none' : 'right'} 500ms ease-in-out`
+            transition,
           }}>
             {React.Children.toArray(this.props.children).map((child, i) => {
               return (
